@@ -1,20 +1,44 @@
 package main
 
 import (
-	"Server/collection"
-	"go.mongodb.org/mongo-driver/bson"
-	"log"
+	"Server/controllers"
+	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
-func main()  {
-	//	router := mux.NewRouter()
-	//	router.HandleFunc("/register", controller.Register).Methods("POST")
-	//	router.HandleFunc("/login", controller.Login).Methods("POST")
-	//	router.HandleFunc("/logout", controller.Logout).Methods("POST")
-	//
-	//	log.Fatal(http.ListenAndServe(":8080", router))
+type RequestData struct {
+	Method  string              `json:"method"`
+	Headers http.Header         `json:"headers"`
+	Body    string              `json:"body"`
+	Path    string              `json:"path"`
+	Queries map[string][]string `json:"queries"`
+}
 
-	filter := bson.M{"username":"Thanh"}
+type ResponseData struct {
+	Status  string      `json:"status"`
+	Headers http.Header `json:"headers"`
+	Body    string      `json:"body"`
+}
+
+func main() {
+	router := gin.Default()
+	api := router.Group("/api")
+	api.GET("/", controllers.Index)
+	api.POST("/login", controllers.Login)
+	api.POST("/logout", controllers.Logout)
+	api.POST("/register", controllers.RegisterUser)
+	api.GET("/list", controllers.ListAllUsers)
+
+	userApi := api.Group("/user")
+	userApi.GET("/:username/devices/list", controllers.ListUserDevices)
+	userApi.POST("/:username/devices/update", controllers.UpdateUserDevices)
+	userApi.POST("/:username/delete", controllers.DeleteUser)
+
+	router.Run(":3000")
+}
+
+func abc()  {
+	//filter := bson.M{"username":"Thanh"}
 	// add an array to an array
 	//update := bson.M{"$addToSet":bson.M{"devicelist":bson.M{"$each":bson.A{"XXX", "YYY"}}}}
 
@@ -28,10 +52,10 @@ func main()  {
 	//log.Println("Match: ", matched)
 	//log.Println("Updated: ", updated)
 
-	isSuccess := collection.DeleteUser(filter)
-	if isSuccess {
-		log.Println("success delete user")
-	} else {
-		log.Println("failed delete user")
-	}
+	//isSuccess := collection.DeleteUser(filter)
+	//if isSuccess {
+	//	log.Println("success delete user")
+	//} else {
+	//	log.Println("failed delete user")
+	//}
 }
