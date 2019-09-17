@@ -6,30 +6,29 @@ import (
 	"context"
 	"fmt"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const UserCollection = "users"
 
-var collection *mongo.Collection
+var usersCollection *mongo.Collection
 
 func init() {
-	collection = GetMongoDatabase().Collection(UserCollection)
+	usersCollection = GetMongoDatabase().Collection(UserCollection)
 }
 
 func InsertUser(user models.User) error {
-	_, err := collection.InsertOne(context.TODO(), user)
+	_, err := usersCollection.InsertOne(context.TODO(), user)
 	if err == nil {
 		return nil
 	}
 
-	msg := fmt.Sprintf("error inserting user with name %s", user.Username)
+	msg := fmt.Sprintf("error inserting user %s", user.Username)
 	return customerrors.Wrap(err, msg)
 }
 
 func FindUser(filter interface{}) (models.User, error) {
 	var existedUser models.User
-	err := collection.FindOne(context.TODO(), filter).Decode(&existedUser)
+	err := usersCollection.FindOne(context.TODO(), filter).Decode(&existedUser)
 
 	if err == nil {
 		return existedUser, nil
@@ -44,40 +43,30 @@ func FindUser(filter interface{}) (models.User, error) {
 
 func FindUserList(filter interface{}) ([]models.User, error) {
 	var userList []models.User
-	cursor, err := collection.Find(context.TODO(), filter)
+	cursor, err := usersCollection.Find(context.TODO(), filter)
 	if err != nil {
-		return userList, customerrors.Wrap(err, "error finding all user, query step")
+		return userList, customerrors.Wrap(err, "error finding user list, query step")
 	}
 
 	err = cursor.All(context.TODO(), &userList)
 	if err != nil {
-		return userList, customerrors.Wrap(err, "error finding all user, decode step")
+		return userList, customerrors.Wrap(err, "error finding user list, decode step")
 	}
 
 	return userList, nil
 }
 
 func UpdateUser(filter interface{}, update interface{}) (int64, int64, error) {
-	updateResult, err := collection.UpdateOne(context.TODO(), filter, update)
+	updateResult, err := usersCollection.UpdateOne(context.TODO(), filter, update)
 	if err != nil {
-		return updateResult.MatchedCount, updateResult.ModifiedCount, customerrors.Wrap(err, "error updating user")
-	}
-
-	return updateResult.MatchedCount, updateResult.ModifiedCount, nil
-}
-
-func UpsertUser(filter interface{}, update interface{}) (int64, int64, error) {
-	updateResult, err := collection.UpdateOne(context.TODO(), filter, update, options.Update().SetUpsert(true))
-
-	if err != nil {
-		return updateResult.MatchedCount, updateResult.ModifiedCount, customerrors.Wrap(err, "error upserting user")
+		return 0, 0, customerrors.Wrap(err, "error updating user")
 	}
 
 	return updateResult.MatchedCount, updateResult.ModifiedCount, nil
 }
 
 func DeleteUser(filter interface{}) (int64, error) {
-	result, err := collection.DeleteOne(context.TODO(), filter)
+	result, err := usersCollection.DeleteOne(context.TODO(), filter)
 	if err == nil {
 		return result.DeletedCount, nil
 	}

@@ -3,7 +3,7 @@ package controllers
 import (
 	"Server/customerrors"
 	"github.com/gin-gonic/gin"
-	"log"
+	"github.com/labstack/gommon/log"
 	"net/http"
 )
 
@@ -20,6 +20,6 @@ func handleError(ctx *gin.Context, err error) {
 		status = http.StatusInternalServerError
 	}
 
-	log.Println(err.Error())
+	log.Error("[handleError]", err.Error())
 	ctx.JSON(status, err.Error())
 }

@@ -3,12 +3,11 @@ package interactor
 import (
 	"Server/customerrors"
 	"Server/models"
-	"Server/services/jwtService"
 	"Server/services/mongodb"
+	"Server/services/mqtt"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
-	"log"
 )
 
 func RegisterUser(user models.User) error {
@@ -37,6 +36,14 @@ func RegisterUser(user models.User) error {
 	return nil
 }
 
+func hashAndSalt(pwd []byte) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.MinCost)
+	if err != nil {
+		return string(pwd), err
+	}
+	return string(hash), nil
+}
+
 func ListAllUser() ([]models.User, error) {
 	return mongodb.FindUserList(bson.D{})
 }
@@ -49,9 +56,25 @@ func ListUserDevices(username string) ([]string, error) {
 	return user.DeviceList, nil
 }
 
-func UpdateUserDevices(username string, deviceList []string) error {
+func AddUserDevice(username string, device string) error {
 	filter := bson.M{"username":username}
-	update := bson.M{"$set":bson.M{"deviceList":deviceList}}
+	update := bson.M{"$addToSet":bson.M{"deviceList":device}}
+
+	matched, _, err := mongodb.UpdateUser(filter, update)
+	if err != nil {
+		return err
+	}
+
+	if matched == 0 {
+		return customerrors.NotFound.New("user not found")
+	}
+
+	return nil
+}
+
+func RemoveUserDevice(username string, device string) error {
+	filter := bson.M{"username":username}
+	update := bson.M{"$pull":bson.M{"deviceList":device}}
 
 	matched, _, err := mongodb.UpdateUser(filter, update)
 	if err != nil {
@@ -66,46 +89,17 @@ func UpdateUserDevices(username string, deviceList []string) error {
 }
 
 func DeleteUserByName(username string) (int64, error) {
-	return mongodb.DeleteUser(bson.M{"username":username})
-}
-
-func UserLogin(loginUser models.User) (string, error) {
-	foundUser, err := mongodb.FindUser(bson.M{"username":loginUser.Username})
-
+	filter := bson.M{"username":username}
+	user, err := mongodb.FindUser(filter)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return "", customerrors.NotFound.New("user not found")
+		return 0, err
+	}
+
+	for _, device := range user.DeviceList {
+		if err := mqtt.UnsubscribeForDevice(device); err != nil {
+			return 0, err
 		}
-		return  "", err
 	}
 
-	if !comparePasswords(foundUser.Password, []byte(loginUser.Password)) {
-		return "", customerrors.BadRequest.New("invalid username or password")
-	}
-
-	jwt, err := jwtService.GenerateJwt(loginUser)
-	if err != nil {
-		return "", customerrors.New("generate jwt failed")
-	}
-
-	return jwt, nil
-}
-
-func hashAndSalt(pwd []byte) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword(pwd, bcrypt.MinCost)
-	if err != nil {
-		return string(pwd), err
-	}
-	return string(hash), nil
-}
-
-func comparePasswords(hashedPwd string, plainPwd []byte) bool {
-	byteHash := []byte(hashedPwd)
-	err := bcrypt.CompareHashAndPassword(byteHash, plainPwd)
-	if err != nil {
-		log.Println("[comparePasswords]", err)
-		return false
-	}
-
-	return true
+	return mongodb.DeleteUser(filter)
 }

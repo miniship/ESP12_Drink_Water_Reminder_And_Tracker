@@ -10,7 +10,7 @@ bool connect(uint8_t maxNetwork, size_t timeout) {
             char* ssid = networks[i].ssid;
             char* password = networks[i].password;
             Serial.print("Connecting to: ");
-            Serial.println(ssid);
+            Serial.print(ssid);
             WiFi.begin(ssid, password);
 
             while (WiFi.status() != WL_CONNECTED && waitingTime < timeout) {
@@ -37,35 +37,35 @@ bool connect(uint8_t maxNetwork, size_t timeout) {
 }
 
 // Not work yet
-bool connectByWiFiMulti(uint8_t maxNetwork, size_t timeout) {
-    ESP8266WiFiMulti wifiMulti;
-    Network* networks = readNetworksFromEEPROM(maxNetwork);
+// bool connectByWiFiMulti(uint8_t maxNetwork, size_t timeout) {
+//     ESP8266WiFiMulti wifiMulti;
+//     Network* networks = readNetworksFromEEPROM(maxNetwork);
 
-    for (uint8_t i = 0; i < maxNetwork; i++) {
-        if (networks[i].ssid[0] != 0 && networks[i].password[0] != 0) {
-            wifiMulti.addAP(networks[i].ssid, networks[i].password);
-        }
-    } 
+//     for (uint8_t i = 0; i < maxNetwork; i++) {
+//         if (networks[i].ssid[0] != 0 && networks[i].password[0] != 0) {
+//             wifiMulti.addAP(networks[i].ssid, networks[i].password);
+//         }
+//     } 
 
-    Serial.print("Connecting...");
-    size_t waitingTime = 0;
+//     Serial.print("Connecting...");
+//     size_t waitingTime = 0;
 
-    while (wifiMulti.run() != WL_CONNECTED && waitingTime < timeout) {
-        Serial.print(".");
-        waitingTime += 1000;
-        delay(1000);
-    }
+//     while (wifiMulti.run() != WL_CONNECTED && waitingTime < timeout) {
+//         Serial.print(".");
+//         waitingTime += 1000;
+//         delay(1000);
+//     }
 
-    if (waitingTime >= timeout) {
-        Serial.println("Failed.");
-        free(networks);
-        return false;
-    }
+//     if (waitingTime >= timeout) {
+//         Serial.println("Failed.");
+//         free(networks);
+//         return false;
+//     }
 
-    Serial.println("Success.");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+//     Serial.println("Success.");
+//     Serial.print("IP address: ");
+//     Serial.println(WiFi.localIP());
 
-    free(networks);
-    return true;
-}
+//     free(networks);
+//     return true;
+// }

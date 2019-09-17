@@ -4,13 +4,14 @@ import (
 	"Server/customerrors"
 	"Server/models"
 	"Server/services/interactor"
+	"Server/services/mqtt"
 	"Server/services/validation"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/locales/en"
 	"github.com/go-playground/universal-translator"
+	"github.com/labstack/gommon/log"
 	"gopkg.in/go-playground/validator.v9"
-	"log"
 	"net/http"
 )
 
@@ -31,7 +32,7 @@ func RegisterUser(ctx *gin.Context)  {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, fmt.Sprintf("register new user with name %s successfully", user.Username))
+	ctx.JSON(http.StatusOK, fmt.Sprintf("register new user %s successfully", user.Username))
 }
 
 func ListAllUsers(ctx *gin.Context) {
@@ -55,21 +56,40 @@ func ListUserDevices(ctx *gin.Context) {
 	}
 }
 
-func UpdateUserDevices(ctx *gin.Context) {
+func AddUserDevice(ctx *gin.Context) {
 	username := ctx.Param("username")
-	var user models.User
+	device := ctx.Param("device")
 
-	if err := ctx.ShouldBindJSON(&user); err != nil {
-		handleError(ctx, customerrors.Wrap(err, "error parsing device list"))
+	if err := interactor.AddUserDevice(username, device); err != nil {
+		handleError(ctx, err)
 		return
 	}
+	log.Info("[AddUserDevice] update database successfully")
 
-	if err := interactor.UpdateUserDevices(username, user.DeviceList); err != nil {
+	if err := mqtt.SubscribeForDevice(device); err != nil {
 		handleError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, fmt.Sprintf("update device list for user with name %s successfully", username))
+	ctx.JSON(http.StatusOK, fmt.Sprintf("add device %s for user %s successfully", device, username))
+}
+
+func RemoveUserDevice(ctx *gin.Context) {
+	username := ctx.Param("username")
+	device := ctx.Param("device")
+
+	if err := interactor.RemoveUserDevice(username, device); err != nil {
+		handleError(ctx, err)
+		return
+	}
+	log.Info("[RemoveUserDevice] update database successfully")
+
+	if err := mqtt.UnsubscribeForDevice(device); err != nil {
+		handleError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, fmt.Sprintf("remove device %s for user %s successfully", device, username))
 }
 
 func DeleteUser(ctx *gin.Context) {
@@ -87,11 +107,11 @@ func validateUserInput(ctx *gin.Context, user models.User) bool {
 	universalTranslator := ut.New(enLocaleTranslator, enLocaleTranslator)
 	translator, found := universalTranslator.GetTranslator("en")
 	if !found {
-		println("[RegisterUser] english translator not found")
+		println("[validateUserInput] english translator not found")
 	}
 
 	if err := validation.ValidateUser(user, translator); err != nil {
-		log.Println("[validateUserInput]", err.Error())
+		log.Error("[validateUserInput]", err.Error())
 		ctx.JSON(http.StatusBadRequest, err.(validator.ValidationErrors).Translate(translator))
 		return false
 	}

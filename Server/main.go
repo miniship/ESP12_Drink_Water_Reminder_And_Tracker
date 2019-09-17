@@ -2,60 +2,46 @@ package main
 
 import (
 	"Server/controllers"
+	"Server/services/jwtService"
+	"Server/services/mqtt"
+	"github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
+	"github.com/labstack/gommon/log"
 	"net/http"
 )
 
-type RequestData struct {
-	Method  string              `json:"method"`
-	Headers http.Header         `json:"headers"`
-	Body    string              `json:"body"`
-	Path    string              `json:"path"`
-	Queries map[string][]string `json:"queries"`
-}
-
-type ResponseData struct {
-	Status  string      `json:"status"`
-	Headers http.Header `json:"headers"`
-	Body    string      `json:"body"`
-}
-
 func main() {
+	mqtt.SubscribeForAllDevices()
 	router := gin.Default()
-	api := router.Group("/api")
-	api.GET("/", controllers.Index)
-	api.POST("/login", controllers.Login)
-	api.POST("/logout", controllers.Logout)
-	api.POST("/register", controllers.RegisterUser)
-	api.GET("/list", controllers.ListAllUsers)
+	jwtMiddleware := jwtService.GetJWTMiddleware()
 
-	userApi := api.Group("/user")
-	userApi.GET("/:username/devices/list", controllers.ListUserDevices)
-	userApi.POST("/:username/devices/update", controllers.UpdateUserDevices)
+	router.NoRoute(jwtMiddleware.MiddlewareFunc(), noRouteHandler)
+	router.GET("/", controllers.Index)
+	router.POST("/register", controllers.RegisterUser)
+	router.POST("/login", jwtMiddleware.LoginHandler)
+
+	authRouter := router.Group("/auth")
+	authRouter.Use(jwtMiddleware.MiddlewareFunc())
+	authRouter.GET("/listUsers", controllers.ListAllUsers)
+
+	userApi := authRouter.Group("/user")
 	userApi.POST("/:username/delete", controllers.DeleteUser)
+	userApi.GET("/:username/listDevices", controllers.ListUserDevices)
 
-	router.Run(":3000")
+	deviceApi := userApi.Group("/:username/device")
+	deviceApi.GET("/:device/listReadings", controllers.ListAllWeightReading)
+	deviceApi.POST("/:device/add", controllers.AddUserDevice)
+	deviceApi.POST("/:device/remove", controllers.RemoveUserDevice)
+	deviceApi.POST("/:device/command", controllers.CommandUserDevice)
+
+	router.Run(":8080")
 }
 
-func abc()  {
-	//filter := bson.M{"username":"Thanh"}
-	// add an array to an array
-	//update := bson.M{"$addToSet":bson.M{"devicelist":bson.M{"$each":bson.A{"XXX", "YYY"}}}}
-
-	// remove a field
-	//update := bson.M{"$unset":bson.M{"device_list":""}}
-
-	//set new value for a field
-	//update := bson.M{"$set":bson.M{"devicelist":bson.A{"BBB"}}}
-
-	//matched, updated := collection.UpsertUser(filter, update)
-	//log.Println("Match: ", matched)
-	//log.Println("Updated: ", updated)
-
-	//isSuccess := collection.DeleteUser(filter)
-	//if isSuccess {
-	//	log.Println("success delete user")
-	//} else {
-	//	log.Println("failed delete user")
-	//}
+func noRouteHandler(c *gin.Context) {
+	claims := jwt.ExtractClaims(c)
+	log.Info("[noRouteHandler] NoRoute claims: %#v\n", claims)
+	c.JSON(404, gin.H{
+		"code": http.StatusNotFound,
+		"message": "Page not found",
+	})
 }
