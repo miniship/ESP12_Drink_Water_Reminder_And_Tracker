@@ -37,7 +37,6 @@ func RegisterUser(ctx *gin.Context)  {
 
 func ListAllUsers(ctx *gin.Context) {
 	userList, err := interactor.ListAllUser()
-
 	if err == nil {
 		ctx.JSON(http.StatusOK, userList)
 	} else {
@@ -47,8 +46,8 @@ func ListAllUsers(ctx *gin.Context) {
 
 func ListUserDevices(ctx *gin.Context) {
 	username := ctx.Param("username")
-	deviceList, err := interactor.ListUserDevices(username)
 
+	deviceList, err := interactor.ListUserDevices(username)
 	if err == nil {
 		ctx.JSON(http.StatusOK, deviceList)
 	} else {
@@ -60,10 +59,21 @@ func AddUserDevice(ctx *gin.Context) {
 	username := ctx.Param("username")
 	device := ctx.Param("device")
 
+	result, err := interactor.IsDeviceRegistered(device)
+	if err != nil {
+		handleError(ctx, err)
+		return
+	}
+	if result {
+		handleError(ctx, customerrors.BadRequest.Newf("device %s is already registered", device))
+		return
+	}
+
 	if err := interactor.AddUserDevice(username, device); err != nil {
 		handleError(ctx, err)
 		return
 	}
+
 	log.Info("[AddUserDevice] update database successfully")
 
 	if err := mqtt.SubscribeForDevice(device); err != nil {
@@ -82,6 +92,7 @@ func RemoveUserDevice(ctx *gin.Context) {
 		handleError(ctx, err)
 		return
 	}
+
 	log.Info("[RemoveUserDevice] update database successfully")
 
 	if err := mqtt.UnsubscribeForDevice(device); err != nil {
@@ -94,6 +105,7 @@ func RemoveUserDevice(ctx *gin.Context) {
 
 func DeleteUser(ctx *gin.Context) {
 	username := ctx.Param("username")
+
 	count, err := interactor.DeleteUserByName(username)
 	if err != nil {
 		handleError(ctx, err)
@@ -105,6 +117,7 @@ func DeleteUser(ctx *gin.Context) {
 func validateUserInput(ctx *gin.Context, user models.User) bool {
 	enLocaleTranslator := en.New()
 	universalTranslator := ut.New(enLocaleTranslator, enLocaleTranslator)
+
 	translator, found := universalTranslator.GetTranslator("en")
 	if !found {
 		println("[validateUserInput] english translator not found")

@@ -5,14 +5,34 @@ import (
 	"Server/services/mongodb"
 	"Server/services/mqtt"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"strconv"
 )
 
 const CommandTopic = "command/"
 
+func IsDeviceRegistered(device string) (bool, error) {
+	filter := bson.M{"deviceList":device}
+
+	_, err := mongodb.FindUser(filter)
+	if err == nil {
+		return true, nil
+	}
+	if err == mongo.ErrNoDocuments {
+		return false, nil
+	}
+
+	return false, err
+}
+
 func ListAllWeightReading(device string) ([]models.Reading, error) {
 	filter := bson.M{"device":device}
 	return mongodb.FindWeightReadingList(filter)
+}
+
+func ClearAllWeightReading(device string) (int64, error) {
+	filter := bson.M{"device":device}
+	return mongodb.DeleteWeightReadingList(filter)
 }
 
 func CommandUserDevice(device string, command models.Command) error {
@@ -25,13 +45,13 @@ func CommandUserDevice(device string, command models.Command) error {
 	}
 
 	var qos = 0
+
 	switch code {
-	case models.RestartDevice:
-		qos = 0
-		break
 	case models.UpdateSchedule:
-		qos = 2
+		qos = 1
 		break
+	case models.RestartDevice:
+	case models.AlertUser:
 	default:
 		qos = 0
 	}

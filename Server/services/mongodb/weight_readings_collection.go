@@ -40,3 +40,12 @@ func FindWeightReadingList(filter interface{}) ([]models.Reading, error) {
 
 	return readingList, nil
 }
+
+func DeleteWeightReadingList(filter interface{}) (int64, error) {
+	result, err := weightReadingsCollection.DeleteMany(context.TODO(), filter)
+	if err == nil {
+		return result.DeletedCount, nil
+	}
+
+	return 0, customerrors.Wrap(err, "error deleting weight reading list")
+}

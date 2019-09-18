@@ -1,27 +1,18 @@
-#include "Form.h"
+#include "HtmlGenerator.h"
 
-String generateNotFoundHTMLString(String uri, HTTPMethod method) {
-    String message = "File Not Found\n\n";
-    message += "URI: ";
-    message += uri;
-    message += "\nMethod: ";
-    message += (method == HTTP_GET)?"GET":"POST";
-    return message;
-}
+String html::generateIndex(wifi::Network* networks) {
+    String* ssidInputMessage = new String[wifi::MAX_NETWORK];
+    String* passwordInputMessage = new String[wifi::MAX_NETWORK];
 
-String generateIndexHTMLString(Network* networks, uint8_t size) {
-    String* ssidInputMessage = new String[size];
-    String* passwordInputMessage = new String[size];
-
-    for (uint8_t i = 0; i < size; i++) {
+    for (uint8_t i = 0; i < wifi::MAX_NETWORK; i++) {
         ssidInputMessage[i] = "";
         passwordInputMessage[i] = "";
     }
 
-    return generateIndexHTMLString(networks, ssidInputMessage, passwordInputMessage, size);
+    return generateIndex(networks, ssidInputMessage, passwordInputMessage);
 }
 
-String generateIndexHTMLString(Network* networks, String* ssidInputMessage, String* passwordInputMessage, uint8_t size) {
+String html::generateIndex(wifi::Network* networks, String* ssidInputMessage, String* passwordInputMessage) {
     String 
     indexHtml =  "<!DOCTYPE HTML>";  
     indexHtml += "<html>";
@@ -34,7 +25,7 @@ String generateIndexHTMLString(Network* networks, String* ssidInputMessage, Stri
     indexHtml +=    "<FORM action=\"/submit\" method=\"post\">";
     indexHtml +=        "<P>";
 
-    for (uint8_t i = 0; i < size; i++) {
+    for (uint8_t i = 0; i < wifi::MAX_NETWORK; i++) {
         String ssid = "";
         String password = "";
         if (networks[i].ssid[0] != 0) {
@@ -71,4 +62,13 @@ String generateIndexHTMLString(Network* networks, String* ssidInputMessage, Stri
     indexHtml += "</html>";
 
     return indexHtml;
+}
+
+String html::generateNotFound(String uri, HTTPMethod method) {
+    String message = "File Not Found\n\n";
+    message += "URI: ";
+    message += uri;
+    message += "\nMethod: ";
+    message += (method == HTTP_GET)?"GET":"POST";
+    return message;
 }

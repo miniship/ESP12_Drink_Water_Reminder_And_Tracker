@@ -3,7 +3,6 @@ package main
 import (
 	"Server/controllers"
 	"Server/services/jwtService"
-	"Server/services/mqtt"
 	"github.com/appleboy/gin-jwt/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/labstack/gommon/log"
@@ -11,7 +10,7 @@ import (
 )
 
 func main() {
-	mqtt.SubscribeForAllDevices()
+	//mqtt.SubscribeForAllDevices()
 	router := gin.Default()
 	jwtMiddleware := jwtService.GetJWTMiddleware()
 
@@ -30,6 +29,7 @@ func main() {
 
 	deviceApi := userApi.Group("/:username/device")
 	deviceApi.GET("/:device/listReadings", controllers.ListAllWeightReading)
+	deviceApi.POST("/:device/clearReadings", controllers.ClearAllWeightReading) // for test
 	deviceApi.POST("/:device/add", controllers.AddUserDevice)
 	deviceApi.POST("/:device/remove", controllers.RemoveUserDevice)
 	deviceApi.POST("/:device/command", controllers.CommandUserDevice)

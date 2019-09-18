@@ -24,18 +24,20 @@ func init() {
 	opts.AddBroker(ConnectionString)
 	opts.SetClientID("dwr-web-server")
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
-		log.Warn(fmt.Sprintf("[mmqt init] Connection lost : %s", err.Error()))
+		log.Warn(fmt.Sprintf("[mqtt init] Connection lost : %s", err.Error()))
 	})
+	// the auto reconnect feature is default on will try and keep the connection going but cause the subscriptions to stop working
+	opts.SetOnConnectHandler(SubscribeForAllDevices)
 
 	mqttClient = mqtt.NewClient(opts)
+
 	token := mqttClient.Connect()
 	if token.Wait() && token.Error() != nil {
-		log.Fatalf("[mmqt init] Fail to connect broker, %v", token.Error())
+		log.Fatalf("[mqtt init] Fail to connect broker, %v", token.Error())
 	}
 }
 
-
-func SubscribeForAllDevices() {
+func SubscribeForAllDevices(client mqtt.Client) {
 	allUser, err := mongodb.FindUserList(bson.D{})
 	if err != nil {
 		log.Fatal("[SubscribeForAllDevices]", err)
@@ -55,6 +57,7 @@ func SubscribeForDevice(device string) error {
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
 	return nil
 }
 
@@ -86,6 +89,7 @@ func UnsubscribeForDevice(device string) error {
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
 	return nil
 }
 
@@ -94,5 +98,6 @@ func PublishMessage(topic string, message string, qos int) error {
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
+
 	return nil
 }
