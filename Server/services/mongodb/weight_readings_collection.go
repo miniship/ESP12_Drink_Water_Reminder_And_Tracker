@@ -4,16 +4,15 @@ import (
 	"Server/customerrors"
 	"Server/models"
 	"context"
-	"fmt"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-const WeightReadingCollection = "weight_reading"
+const weightReadingCollectionName = "weight_reading"
 
 var weightReadingsCollection *mongo.Collection
 
 func init() {
-	weightReadingsCollection = GetMongoDatabase().Collection(WeightReadingCollection)
+	weightReadingsCollection = database.Collection(weightReadingCollectionName)
 }
 
 func InsertWeightReading(reading models.Reading) error {
@@ -22,8 +21,7 @@ func InsertWeightReading(reading models.Reading) error {
 		return nil
 	}
 
-	msg := fmt.Sprintf("error inserting weight reading for device %s", reading.Device)
-	return customerrors.Wrap(err, msg)
+	return customerrors.Wrapf(err, "error inserting weight reading for device %s", reading.Device)
 }
 
 func FindWeightReadingList(filter interface{}) ([]models.Reading, error) {

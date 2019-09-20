@@ -3,13 +3,10 @@ package controllers
 import (
 	"Server/customerrors"
 	"Server/models"
-	"Server/services/interactor"
-	"Server/services/mqtt"
-	"Server/services/validation"
+	"Server/services/customValidators"
+	"Server/services/interactors"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/locales/en"
-	"github.com/go-playground/universal-translator"
 	"github.com/labstack/gommon/log"
 	"gopkg.in/go-playground/validator.v9"
 	"net/http"
@@ -23,11 +20,13 @@ func RegisterUser(ctx *gin.Context)  {
 		return
 	}
 
-	if !validateUserInput(ctx, user) {
+	if err := customValidators.ValidateUser(user); err != nil {
+		log.Error("[RegisterUser]", err.Error())
+		ctx.JSON(http.StatusBadRequest, err.(validator.ValidationErrors).Translate(customValidators.UniversalEnglishTranslator))
 		return
 	}
 
-	if err := interactor.RegisterUser(user); err != nil {
+	if err := interactors.RegisterUser(user); err != nil {
 		handleError(ctx, err)
 		return
 	}
@@ -36,7 +35,7 @@ func RegisterUser(ctx *gin.Context)  {
 }
 
 func ListAllUsers(ctx *gin.Context) {
-	userList, err := interactor.ListAllUser()
+	userList, err := interactors.ListAllUser()
 	if err == nil {
 		ctx.JSON(http.StatusOK, userList)
 	} else {
@@ -44,10 +43,19 @@ func ListAllUsers(ctx *gin.Context) {
 	}
 }
 
+func DeleteUser(ctx *gin.Context) {
+	username := ctx.Param("username")
+	if err := interactors.DeleteUserByName(username); err != nil {
+		handleError(ctx, err)
+	} else {
+		ctx.JSON(http.StatusOK, fmt.Sprintf("delete user with name %s successfully", username))
+	}
+}
+
 func ListUserDevices(ctx *gin.Context) {
 	username := ctx.Param("username")
 
-	deviceList, err := interactor.ListUserDevices(username)
+	deviceList, err := interactors.ListUserDevices(username)
 	if err == nil {
 		ctx.JSON(http.StatusOK, deviceList)
 	} else {
@@ -59,75 +67,20 @@ func AddUserDevice(ctx *gin.Context) {
 	username := ctx.Param("username")
 	device := ctx.Param("device")
 
-	result, err := interactor.IsDeviceRegistered(device)
-	if err != nil {
+	if err := interactors.AddUserDevice(username, device); err == nil {
+		ctx.JSON(http.StatusOK, fmt.Sprintf("add device %s for user %s successfully", device, username))
+	} else {
 		handleError(ctx, err)
-		return
 	}
-	if result {
-		handleError(ctx, customerrors.BadRequest.Newf("device %s is already registered", device))
-		return
-	}
-
-	if err := interactor.AddUserDevice(username, device); err != nil {
-		handleError(ctx, err)
-		return
-	}
-
-	log.Info("[AddUserDevice] update database successfully")
-
-	if err := mqtt.SubscribeForDevice(device); err != nil {
-		handleError(ctx, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, fmt.Sprintf("add device %s for user %s successfully", device, username))
 }
 
 func RemoveUserDevice(ctx *gin.Context) {
 	username := ctx.Param("username")
 	device := ctx.Param("device")
 
-	if err := interactor.RemoveUserDevice(username, device); err != nil {
-		handleError(ctx, err)
-		return
-	}
-
-	log.Info("[RemoveUserDevice] update database successfully")
-
-	if err := mqtt.UnsubscribeForDevice(device); err != nil {
-		handleError(ctx, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, fmt.Sprintf("remove device %s for user %s successfully", device, username))
-}
-
-func DeleteUser(ctx *gin.Context) {
-	username := ctx.Param("username")
-
-	count, err := interactor.DeleteUserByName(username)
-	if err != nil {
-		handleError(ctx, err)
+	if err := interactors.RemoveUserDevice(username, device); err == nil {
+		ctx.JSON(http.StatusOK, fmt.Sprintf("remove device %s for user %s successfully", device, username))
 	} else {
-		ctx.JSON(http.StatusOK, fmt.Sprintf("delete %d user with name %s successfully", count, username))
+		handleError(ctx, err)
 	}
-}
-
-func validateUserInput(ctx *gin.Context, user models.User) bool {
-	enLocaleTranslator := en.New()
-	universalTranslator := ut.New(enLocaleTranslator, enLocaleTranslator)
-
-	translator, found := universalTranslator.GetTranslator("en")
-	if !found {
-		println("[validateUserInput] english translator not found")
-	}
-
-	if err := validation.ValidateUser(user, translator); err != nil {
-		log.Error("[validateUserInput]", err.Error())
-		ctx.JSON(http.StatusBadRequest, err.(validator.ValidationErrors).Translate(translator))
-		return false
-	}
-
-	return true
 }

@@ -1,6 +1,7 @@
 package mqtt
 
 import (
+	"Server/customerrors"
 	"Server/models"
 	"Server/services/mongodb"
 	"fmt"
@@ -12,16 +13,16 @@ import (
 	"time"
 )
 
-const ConnectionString = "tcp://localhost:1883"
-//const ConnectionString = "tcp://35.197.155.112:4443"
-const DeviceTopic = "device/"
+const connectionString = "tcp://localhost:1883"
+//const connectionString = "tcp://35.197.155.112:4443"
+const deviceTopic = "device/"
 
 var mqttClient mqtt.Client
 
 func init() {
 	opts := mqtt.NewClientOptions()
 	opts.SetCleanSession(false)
-	opts.AddBroker(ConnectionString)
+	opts.AddBroker(connectionString)
 	opts.SetClientID("dwr-web-server")
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		log.Warn(fmt.Sprintf("[mqtt init] Connection lost : %s", err.Error()))
@@ -33,29 +34,29 @@ func init() {
 
 	token := mqttClient.Connect()
 	if token.Wait() && token.Error() != nil {
-		log.Fatalf("[mqtt init] Fail to connect broker, %v", token.Error())
+		log.Errorf("[mqtt init] Fail to connect broker, %v", token.Error())
 	}
 }
 
 func SubscribeForAllDevices(client mqtt.Client) {
 	allUser, err := mongodb.FindUserList(bson.D{})
 	if err != nil {
-		log.Fatal("[SubscribeForAllDevices]", err)
+		log.Error("[SubscribeForAllDevices]", err)
 	}
 
 	for _, user := range allUser {
 		for _, device := range user.DeviceList {
 			if err := SubscribeForDevice(device); err != nil {
-				log.Fatal("[SubscribeForAllDevices]", err)
+				log.Error("[SubscribeForAllDevices]", err)
 			}
 		}
 	}
 }
 
 func SubscribeForDevice(device string) error {
-	token := mqttClient.Subscribe(DeviceTopic + device, byte(0), onIncomingDataReceived)
+	token := mqttClient.Subscribe(deviceTopic + device, byte(0), onIncomingDataReceived)
 	if token.Wait() && token.Error() != nil {
-		return token.Error()
+		return customerrors.Wrapf(token.Error(), "error subscribing topic for device %s", device)
 	}
 
 	return nil
@@ -63,7 +64,7 @@ func SubscribeForDevice(device string) error {
 
 func onIncomingDataReceived(client mqtt.Client, message mqtt.Message) {
 	topic := message.Topic()
-	if !strings.Contains(topic, DeviceTopic) || len(strings.Split(topic, "/")) != 2 {
+	if !strings.Contains(topic, deviceTopic) || len(strings.Split(topic, "/")) != 2 {
 		log.Warn("[onIncomingDataReceived] receive message on invalid topic", topic)
 		return
 	}
@@ -85,9 +86,9 @@ func onIncomingDataReceived(client mqtt.Client, message mqtt.Message) {
 }
 
 func UnsubscribeForDevice(device string) error {
-	token := mqttClient.Unsubscribe(DeviceTopic + device)
-	if token.Wait() && token.Error() != nil {
-		return token.Error()
+	token := mqttClient.Unsubscribe(deviceTopic + device)
+	if token.WaitTimeout(10 * time.Second) && token.Error() != nil {
+		return customerrors.Wrapf(token.Error(), "error un-subscribing topic for device %s", device)
 	}
 
 	return nil
@@ -96,7 +97,7 @@ func UnsubscribeForDevice(device string) error {
 func PublishMessage(topic string, message string, qos int) error {
 	token := mqttClient.Publish(topic, byte(qos), false, message)
 	if token.Wait() && token.Error() != nil {
-		return token.Error()
+		return customerrors.Wrapf(token.Error(), "error publishing message % to topic %s with quality %d", message, topic, qos)
 	}
 
 	return nil

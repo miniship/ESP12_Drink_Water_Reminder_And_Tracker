@@ -30,7 +30,7 @@ func GetJWTMiddleware() *jwt.GinJWTMiddleware {
 	})
 
 	if err != nil {
-		log.Fatal("[GetJWTMiddleware]", err.Error())
+		log.Error("[GetJWTMiddleware]", err.Error())
 	}
 
 	return authMiddleware
