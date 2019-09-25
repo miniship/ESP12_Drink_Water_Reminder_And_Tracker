@@ -5,6 +5,7 @@ import (
 	"Server/models"
 	"Server/services/mongodb"
 	"Server/services/mqtt"
+	"github.com/labstack/gommon/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"strconv"
 )
@@ -42,19 +43,8 @@ func CommandUserDevice(username string, device string, command models.Command) e
 		message += param + ";"
 	}
 
-	var qos = 0
-
-	switch code {
-	case models.UpdateSchedule:
-		qos = 1
-		break
-	case models.RestartDevice:
-	case models.AlertUser:
-	default:
-		qos = 0
-	}
-
-	return mqtt.PublishMessage(topic, message, qos)
+	log.Infof("Topic: %s, Mesage: %s, Qos: %d", topic, message)
+	return mqtt.PublishMessage(topic, message, 1)
 }
 
 func isDeviceBelongToUser(username string, device string) bool {

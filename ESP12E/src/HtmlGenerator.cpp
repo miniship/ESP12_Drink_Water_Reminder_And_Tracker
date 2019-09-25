@@ -1,18 +1,13 @@
 #include "HtmlGenerator.h"
 
-String html::generateIndex(wifi::Network* networks) {
+String html::generateIndex() {
     String* ssidInputMessage = new String[wifi::MAX_NETWORK];
     String* passwordInputMessage = new String[wifi::MAX_NETWORK];
 
-    for (uint8_t i = 0; i < wifi::MAX_NETWORK; i++) {
-        ssidInputMessage[i] = "";
-        passwordInputMessage[i] = "";
-    }
-
-    return generateIndex(networks, ssidInputMessage, passwordInputMessage);
+    return generateIndex(wifi::getNetworkList(), ssidInputMessage, passwordInputMessage);
 }
 
-String html::generateIndex(wifi::Network* networks, String* ssidInputMessage, String* passwordInputMessage) {
+String html::generateIndex(wifi::Network* networksList, String* ssidInputMessage, String* passwordInputMessage) {
     String 
     indexHtml =  "<!DOCTYPE HTML>";  
     indexHtml += "<html>";
@@ -21,25 +16,16 @@ String html::generateIndex(wifi::Network* networks, String* ssidInputMessage, St
     indexHtml +=    "<title>ESP8266 WebServer</title>";
     indexHtml += "</head>";
     indexHtml += "<body>";
-    indexHtml +=    "<h1>ESP8266 Web Form Demo</h1>";
+    indexHtml +=    "<h1>Drink Water Reminder</h1>";
     indexHtml +=    "<FORM action=\"/submit\" method=\"post\">";
     indexHtml +=        "<P>";
 
     for (uint8_t i = 0; i < wifi::MAX_NETWORK; i++) {
-        String ssid = "";
-        String password = "";
-        if (networks[i].ssid[0] != 0) {
-            ssid = networks[i].ssid;
-        }
-        if (networks[i].password[0] != 0) {
-            password = networks[i].password;
-        }
-
     indexHtml +=        ssidInputMessage[i];
     indexHtml +=        "<br>";
     indexHtml +=        "<label>ssid:&nbsp;</label>";
     indexHtml +=        "<input size=\"30\" maxlength=\"30\" value=\"";
-    indexHtml +=            ssid;
+    indexHtml +=            networksList[i].ssid;
     indexHtml +=            "\" name=\"ssid";
     indexHtml +=            i;
     indexHtml +=        "\">";
@@ -48,12 +34,13 @@ String html::generateIndex(wifi::Network* networks, String* ssidInputMessage, St
     indexHtml +=        "<br>";
     indexHtml +=        "<label>Password:&nbsp;</label>";
     indexHtml +=        "<input size=\"30\" maxlength=\"30\" value=\"";
-    indexHtml +=            password;
+    indexHtml +=            networksList[i].password;
     indexHtml +=            "\" name=\"password";
     indexHtml +=            i;
     indexHtml +=        "\">";
     indexHtml +=        "<br><br>";
-    }    
+    }
+     
     indexHtml +=        "<input type=\"submit\" value=\"Send\">";
     indexHtml +=        "<input type=\"reset\">";
     indexHtml +=        "</P>";
