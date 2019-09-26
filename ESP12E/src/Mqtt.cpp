@@ -2,16 +2,20 @@
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 #include "DrinkSchedule.h"
+#include "hx711scale.h"
 
-const char* MQTT_SERVER = "192.168.137.1";
-const uint16_t MQTT_PORT = 1883;
+// const char* MQTT_SERVER = "192.168.137.1";
+// const uint16_t MQTT_PORT = 1883;
+const char* MQTT_SERVER = "35.197.155.112";
+const uint16_t MQTT_PORT = 4443;
 const uint16_t MQTT_TIMEOUT = 10000;
 const uint8_t REMIND_INTERVAL_PAYLOAD_MAX_LENGTH = 5;
 enum CommandCode{
     UnuseCode,
     RestartDevice,
     UpdateSchedule,
-    UpdateOfflineRemindInterval
+    UpdateOfflineRemindInterval,
+    Tare
 };
 
 WiFiClient wifiCLient;
@@ -92,6 +96,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
         case UpdateOfflineRemindInterval:
             sched::updateOfflineRemindIntervalInSecond(extractRemindIntervalFromPayload(payload + 2, length - 2));
+            break;
+        
+        case Tare:
+            scale::tare();
             break;
 
         default:

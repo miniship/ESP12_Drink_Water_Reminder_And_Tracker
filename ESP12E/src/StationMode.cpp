@@ -6,7 +6,8 @@
 #include "DrinkSchedule.h"
 #include <ESP8266HTTPClient.h>
 
-const String GET_CURRENT_TIME_LINK = "http://192.168.137.1:8080/getCurrentTime";
+// const String GET_CURRENT_TIME_LINK = "http://192.168.137.1:8080/getCurrentTime";
+const String GET_CURRENT_TIME_LINK = "https://drink-water-reminder-1.appspot.com:8080/getCurrentTime";
 
 sched::RemindTime currentTime {
     hour:24,
