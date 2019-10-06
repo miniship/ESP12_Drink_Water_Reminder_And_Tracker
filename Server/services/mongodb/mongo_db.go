@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-const connectionString = "mongodb://localhost:27017"
-//const connectionString = "mongodb+srv://admin:rr98iZZ6EhiVF9Mq@cluster0-ykwv3.gcp.mongodb.net/water-reminder?retryWrites=true&w=majority"
+//const connectionString = "mongodb://localhost:27017"
+const connectionString = "mongodb+srv://admin:rr98iZZ6EhiVF9Mq@cluster0-ykwv3.gcp.mongodb.net/water-reminder?retryWrites=true&w=majority"
 const databaseName = "water-reminder"
 
 var database *mongo.Database

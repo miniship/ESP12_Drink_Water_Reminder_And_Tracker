@@ -29,7 +29,3 @@ float scale::readData() {
 
     return data;
 }
-
-void scale::tare() { // take account of vessel weight and reset scale reading to 0
-    hx711.tare(ZERO_FACTOR + hx711.read_average(5));
-}

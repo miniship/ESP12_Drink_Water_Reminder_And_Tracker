@@ -10,7 +10,7 @@ import (
 	"strconv"
 )
 
-const commandTopic = "command/"
+const commandTopic = "/3ml/command/"
 
 func ListAllWeightReading(username string, device string) ([]models.Reading, error) {
 	if !isDeviceBelongToUser(username, device) {
@@ -43,7 +43,7 @@ func CommandUserDevice(username string, device string, command models.Command) e
 		message += param + ";"
 	}
 
-	log.Infof("Topic: %s, Mesage: %s, Qos: %d", topic, message)
+	log.Infof("Topic: %s, Mesage: %s", topic, message)
 	return mqtt.PublishMessage(topic, message, 1)
 }
 

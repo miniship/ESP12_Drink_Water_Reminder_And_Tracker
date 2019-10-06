@@ -4,7 +4,6 @@
 namespace scale {
     void init();
     float readData();
-    void tare();
 }
 
 #endif

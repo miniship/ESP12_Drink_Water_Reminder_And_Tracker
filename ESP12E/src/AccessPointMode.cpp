@@ -1,17 +1,21 @@
 #include "AccessPointMode.h"
 #include "ssd1306oled.h"
 #include <ESP8266WebServer.h>
-#include "WifiConnect.h"
+#include "DeviceSettings.h"
 #include "HtmlGenerator.h"
+#include "DeviceController.h"
 
 const char* AP_MODE_SSID = "ESP12AP";
 const char* AP_MODE_PASSWORD = "123123123";
 const char* ROOT_PATH = "/";
 const char* SUBMIT_PATH = "/submit";
-const char* SSID_ERROR_MESSAGE = "SSID must be between 2 and 30 characters length. "
+const char* SSID_ERROR_MESSAGE = " is invalid. SSID must be between 2 and 30 characters length. "
                                   "It cannot contain ; :";
-const char* PASSWORD_ERROR_MESSAGE = "Password must be between 8 and 30 characters length. "
+const char* PASSWORD_ERROR_MESSAGE = " is invalid. Password must be between 8 and 30 characters length. "
                                       "It cannot contain ; : \' \"";
+const char* INTERVAL_ALERT_ERROR_MESSAGE = "Interval alert in second must be an integer from 30 to 86400";
+const char* SCHEDULE_ALERT_ERROR_MESSAGE = " is invalid time of day";
+
 const uint8_t SSID_MIN_LENGTH = 2;
 const uint8_t SSID_MAX_LENGTH = 30;
 const uint8_t PASSWORD_MIN_LENGTH = 8;
@@ -22,15 +26,16 @@ ESP8266WebServer server(80);
 void startServer();
 void handleRoot();
 void handleSubmit();
-wifi::Network* getInputNetworkList();
-bool validateInputNetworkList(wifi::Network* networkList, String* ssidInputMessage, String* passwordInputMessage);
-bool validateNetwork(wifi::Network network, uint8_t index, String* ssidInputMessage, String* passwordInputMessage);
+settings::DeviceSettings getInputSettings();
+bool validateInputNetworkList(settings::Network* inputNetworkList, uint8_t networkCounter, String* ssidInputMessage, String* passwordInputMessage);
+bool validateNetwork(settings::Network network, uint8_t index, String* ssidInputMessage, String* passwordInputMessage);
 bool validateSsid(char ssid[], uint8_t ssidLen);
 bool validatePassword(char password[], uint8_t passLen);
+bool validateInputScheduleAlertList(uint32_t* inputScheduleAlertList, uint8_t alertsPerDay, String* scheduleAlertInputMessage);
 void handleNotFound();
 
 void accessPoint::startAccessPointMode() {
-    oled::displayTextCenter("Station mode failed\nStarting access point mode\nIt should take less than one minute", false);
+    oled::displayTextCenter("Starting access point mode\nIt should take less than one minute", false);
     WiFi.mode(WIFI_OFF);
     delay(1000);
     WiFi.mode(WIFI_AP);
@@ -53,82 +58,155 @@ void handleRoot() {
 }
 
 void handleSubmit() {
-    // Serial.println("Handling submit request.");
+    settings::DeviceSettings inputSettings = getInputSettings();
+    String* ssidInputMessage = new String[settings::MAX_STORED_NETWORK];
+    String* passwordInputMessage = new String[settings::MAX_STORED_NETWORK];
+    String intervalAlertInputMessage = "";
+    String* scheduleAlertInputMessage = new String[settings::MAX_ALERT_PER_DAY];
+    bool isValid = true;
 
-    wifi::Network* networkList = getInputNetworkList();
-    String* ssidInputMessage = new String[wifi::MAX_NETWORK];
-    String* passwordInputMessage = new String[wifi::MAX_NETWORK];
-
-    if (validateInputNetworkList(networkList, ssidInputMessage, passwordInputMessage) && wifi::updateNetworkList()) {
-        String message = "Successfully save networkList. Device will be restarted" ;
-        server.send(200, "text/html", message);
-        delay(1000);
-        ESP.restart();      
-
-    } else {
-        String html = html::generateIndex(networkList, ssidInputMessage, passwordInputMessage);
-        server.send(400, "text/html", html);        
+    if (!validateInputNetworkList(inputSettings.networkList, inputSettings.networkCount, ssidInputMessage, passwordInputMessage)) {
+        isValid = false;
     }
+
+    if (inputSettings.intervalAlertInSecond < settings::MIN_INTERVAL_ALERT_IN_SECOND || inputSettings.intervalAlertInSecond > settings::MAX_INTERVAL_ALERT_IN_SECOND) {
+        intervalAlertInputMessage = INTERVAL_ALERT_ERROR_MESSAGE;
+        isValid = false;
+    }
+
+    if (!validateInputScheduleAlertList(inputSettings.timeOfDayInSecondList, inputSettings.alertTimesPerDay, scheduleAlertInputMessage)) {
+        isValid = false;
+    } else {
+        std::sort(inputSettings.timeOfDayInSecondList, inputSettings.timeOfDayInSecondList + inputSettings.alertTimesPerDay);
+    }
+
+    if (!isValid) {
+        String html = html::generateIndex(inputSettings, 
+                                    ssidInputMessage,
+                                    passwordInputMessage,
+                                    intervalAlertInputMessage,
+                                    scheduleAlertInputMessage);
+        server.send(400, "text/html", html);
+        return;
+    }
+
+    if (!settings::updateDeviceSettings(inputSettings)) {
+        server.send(500, "text/html", "Could not update device settings");
+    }
+
+    String message = "Successfully save device settings. Switch to station mode" ;
+    server.send(200, "text/html", message);
+    delay(1000);
+    controller::switchModes(controller::DeviceMode::Station, controller::AlertMode::Schedule);
 }
 
-wifi::Network* getInputNetworkList() {
-    wifi::Network* networkList = wifi::getNetworkList();
+settings::DeviceSettings getInputSettings() {
+    settings::DeviceSettings inputSettings = settings::getDeviceSettings();
+    settings::Network* inputNetworkList = inputSettings.networkList;
+    uint32_t* inputScheduleAlertList = inputSettings.timeOfDayInSecondList;
+    uint8_t counter = 0;
 
-    for (uint8_t i = 0; i < wifi::MAX_NETWORK; i++) {
+    for (uint8_t i = 1; i <= settings::MAX_STORED_NETWORK; i++) {
         String ssidArg = "ssid";
         String passwordArg = "password";
         ssidArg += i;
         passwordArg += i;
-        String ssid = server.arg(ssidArg);
-        String password = server.arg(passwordArg);
-        ssid.trim();
-        password.trim();
-        ssid.toCharArray(networkList[i].ssid, 31);
-        password.toCharArray(networkList[i].password, 31);        
+        String inputSsid = "";
+        String inputPassword = ""; 
+        
+        if (server.hasArg(ssidArg)) {
+            inputSsid = server.arg(ssidArg);
+        }
 
-        // Serial.printf("Submitted ssid%d: ", i);
-        // Serial.println(ssid);
-        // Serial.printf("Submitted password%d: ", i);
-        // Serial.println(password);
-    }
+        if (server.hasArg(passwordArg)) {
+            inputPassword = server.arg(passwordArg);
+        }
 
-    return networkList;
-}
-
-bool validateInputNetworkList(wifi::Network* networkList, String* ssidInputMessage, String* passwordInputMessage) {
-    bool isValidate = true;
-
-    for (uint8_t i = 0; i < wifi::MAX_NETWORK; i++) {
-        if (validateNetwork(networkList[i], i, ssidInputMessage, passwordInputMessage)) {
+        inputSsid.trim();
+        inputPassword.trim();
+        if (inputSsid.length() == 0 && inputPassword.length() == 0) {
             continue;
         }
 
-        isValidate = false;
+        inputSsid.toCharArray(inputNetworkList[counter].ssid, 31);
+        inputPassword.toCharArray(inputNetworkList[counter].password, 31);
+        counter++;
     }
+    inputSettings.networkCount = counter;
 
-    return isValidate;
+    String inputIntervalAlertString = server.arg("intervalAlert");
+    inputIntervalAlertString.trim();
+    uint32_t inputIntervalAlert = inputIntervalAlertString.toInt();
+    inputSettings.intervalAlertInSecond = inputIntervalAlert;
+
+    counter = 0;
+    for (uint8_t i = 1; i <= settings::MAX_ALERT_PER_DAY; i++) {
+        String hourArg = "hour";
+        String minuteArg = "minute";
+        hourArg += i;
+        minuteArg += i;
+        String inputHour = "";
+        String inputMinute = ""; 
+        
+        if (server.hasArg(hourArg)) {
+            inputHour = server.arg(hourArg);
+        }
+
+        if (server.hasArg(minuteArg)) {
+            inputMinute = server.arg(minuteArg);
+        }
+
+        inputHour.trim();
+        inputMinute.trim();
+        if (inputHour.length() == 0 && inputMinute.length() == 0) {
+            continue;
+        }
+
+        uint8_t hour = inputHour.toInt();
+        uint8_t minute = inputMinute.toInt();
+        inputScheduleAlertList[counter++] = hour * 3600 + minute * 60;
+    }
+    inputSettings.alertTimesPerDay = counter;
+
+    return inputSettings;
 }
 
-bool validateNetwork(wifi::Network network, uint8_t index, String* ssidInputMessage, String* passwordInputMessage) {
-    uint8_t ssidLen = strlen(network.ssid);
-    uint8_t passLen = strlen(network.password);
-    bool isValidate = true; 
+bool validateInputNetworkList(settings::Network* inputNetworkList, uint8_t networkCounter, String* ssidInputMessage, String* passwordInputMessage) {
+    bool isValid = true;
 
-    if (ssidLen == 0 && passLen == 0) {
-        return isValidate;
+    for (uint8_t i = 0; i < networkCounter; i++) {
+        if (validateNetwork(inputNetworkList[i], i, ssidInputMessage, passwordInputMessage)) {
+            continue;
+        }
+
+        isValid = false;
     }
 
+    return isValid;
+}
+
+bool validateNetwork(settings::Network network, uint8_t index, String* ssidInputMessage, String* passwordInputMessage) {
+    uint8_t ssidLen = strlen(network.ssid);
+    uint8_t passLen = strlen(network.password);
+    bool isValid = true;
+
     if (!validateSsid(network.ssid, ssidLen)) {
-        ssidInputMessage[index] = SSID_ERROR_MESSAGE;
-        isValidate = false;
+        String errorMessage = "SSID";
+        errorMessage += index + 1;
+        errorMessage += SSID_ERROR_MESSAGE;
+        ssidInputMessage[index] = errorMessage;
+        isValid = false;
     }
 
     if (!validatePassword(network.password, passLen)) {
-        passwordInputMessage[index] = PASSWORD_ERROR_MESSAGE;
-        isValidate = false;
+        String errorMessage = "Password";
+        errorMessage += index + 1;
+        errorMessage += PASSWORD_ERROR_MESSAGE;
+        passwordInputMessage[index] = errorMessage;
+        isValid = false;
     }
 
-    return isValidate;
+    return isValid;
 }
 
 bool validateSsid(char ssid[], uint8_t ssidLen) {
@@ -159,6 +237,22 @@ bool validatePassword(char password[], uint8_t passLen) {
     }   
 
     return true;
+}
+
+bool validateInputScheduleAlertList(uint32_t* inputScheduleAlertList, uint8_t alertsPerDay, String* scheduleAlertInputMessage) {
+    bool isValid = true;
+
+    for (uint8_t i = 0; i < alertsPerDay; i++) {
+        if (inputScheduleAlertList[i] > settings::MAX_INTERVAL_ALERT_IN_SECOND) {
+            String errorMessage = "Schedule ";
+            errorMessage += i + 1;
+            errorMessage += SCHEDULE_ALERT_ERROR_MESSAGE;
+            scheduleAlertInputMessage[i] = errorMessage;
+            isValid = false;
+        }
+    }
+
+    return isValid;
 }
 
 void handleNotFound() {

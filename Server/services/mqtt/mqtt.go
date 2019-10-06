@@ -13,9 +13,9 @@ import (
 	"time"
 )
 
-const connectionString = "tcp://localhost:1883"
-//const connectionString = "tcp://35.197.155.112:4443"
-const deviceTopic = "device/"
+//const connectionString = "tcp://localhost:1883"
+const connectionString = "tcp://35.197.155.112:4443"
+const deviceTopic = "/3ml/device/"
 
 var mqttClient mqtt.Client
 
@@ -64,12 +64,12 @@ func SubscribeForDevice(device string) error {
 
 func onIncomingDataReceived(client mqtt.Client, message mqtt.Message) {
 	topic := message.Topic()
-	if !strings.Contains(topic, deviceTopic) || len(strings.Split(topic, "/")) != 2 {
+	if !strings.Contains(topic, deviceTopic) {
 		log.Warn("[onIncomingDataReceived] receive message on invalid topic", topic)
 		return
 	}
 
-	device := strings.Split(topic, "/")[1]
+	device := strings.Replace(topic, deviceTopic, "", 1)
 	payload := string(message.Payload())
 
 	weightInGram, err := strconv.Atoi(payload)

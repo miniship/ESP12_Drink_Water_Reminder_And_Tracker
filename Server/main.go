@@ -16,7 +16,6 @@ func main() {
 
 	router.NoRoute(jwtMiddleware.MiddlewareFunc(), noRouteHandler)
 	router.GET("/", controllers.Index)
-	router.GET("/getCurrentTime", controllers.GetCurrentTime)
 	router.POST("/register", controllers.RegisterUser)
 	router.POST("/login", jwtMiddleware.LoginHandler)
 
