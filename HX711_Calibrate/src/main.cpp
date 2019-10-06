@@ -33,12 +33,12 @@
 
 #include "HX711.h"
 
-const byte DOUT = D6;
-const byte PD_SCK = D5;
+const byte DOUT = D4;
+const byte PD_SCK = D3;
 
 HX711 scale;
 
-float calibration_factor = 414; //-7050 worked for my 440lb max scale setup
+float calibration_factor = 410; //-7050 worked for my 440lb max scale setup
 
 void setup() {
   Serial.begin(9600);

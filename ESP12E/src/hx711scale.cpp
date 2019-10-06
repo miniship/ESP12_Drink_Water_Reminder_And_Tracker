@@ -1,10 +1,10 @@
 #include "hx711scale.h"
 #include <HX711.h>
 
-const float CALIBRATION_FACTOR = 414; // for device 13892160
+const float CALIBRATION_FACTOR = 410; // for device 13892160
 const long ZERO_FACTOR = 57866;
-const byte DOUT = D6;
-const byte PD_SCK = D5;
+const byte DOUT = D4;
+const byte PD_SCK = D3;
 const float SCALE_LIMIT = 5000;
 
 HX711 hx711;
