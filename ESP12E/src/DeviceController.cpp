@@ -35,6 +35,7 @@ void displayWeight();
 void publishWeight();
 void softRestartDevice();
 void handleKeyInput();
+bool isLiftup = false;
 
 void controller::doSetup() {
     oled::init();
@@ -99,6 +100,15 @@ void readWeight() {
     }
 
     lastReadingWeight = currentReadingWeight;
+
+    if (lastReadingWeight < VESSEL_WEIGHT_IGNORE && !isLiftup) {
+        isLiftup = true;
+        mqtt::publishLiftup();
+    } else if (lastReadingWeight >= VESSEL_WEIGHT_IGNORE && isLiftup) {
+        isLiftup = false;
+        mqtt::publishPutdown();
+    }
+
     displayWeight();
 }
 

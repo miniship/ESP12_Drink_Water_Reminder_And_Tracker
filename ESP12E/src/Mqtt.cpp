@@ -23,7 +23,9 @@ WiFiClient wifiCLient;
 PubSubClient mqttClient(wifiCLient);
 String clientId = "ESP8266Client-";
 String commandTopic = "/3ml/command/";
-String deviceTopic = "/3ml/device/";
+String deviceTopic = "/3ml/device/chipId/scale";
+String deviceLiftup = "/3ml/device/chipId/liftUp";
+String devicePutDown = "/3ml/device/chipId/putDown";
 
 void setupMqtt();
 bool connectMqtt();
@@ -44,7 +46,13 @@ void setupMqtt() {
         commandTopic += chipId;
     }
     if (deviceTopic.indexOf(chipId) < 0) {
-        deviceTopic += chipId;
+        deviceTopic.replace("chipId", chipId);
+    }
+    if (deviceLiftup.indexOf(chipId) < 0) {
+        deviceLiftup.replace("chipId", chipId);
+    }
+    if (devicePutDown.indexOf(chipId) < 0) {
+        devicePutDown.replace("chipId", chipId);
     }
 
     mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
@@ -108,8 +116,26 @@ void mqtt::publishReading(uint16_t data) {
     if (mqttClient.connected()) {
         char buff[5];
         itoa(data, buff, 10);
+        Serial.printf("Send %d to topic: ", data);
+        Serial.println(deviceTopic);
         mqttClient.publish(deviceTopic.c_str(), buff);
     }    
+}
+
+void mqtt::publishLiftup() {
+    if (mqttClient.connected()) {
+        Serial.printf("Send Lift up message to topic: ");
+        Serial.println(deviceLiftup);
+        mqttClient.publish(deviceLiftup.c_str(), "Liftup");
+    }
+}
+
+void mqtt::publishPutdown() {
+    if (mqttClient.connected()) {
+        Serial.printf("Send Putdown message to topic: ");
+        Serial.println(devicePutDown);
+        mqttClient.publish(devicePutDown.c_str(), "Putdown");
+    }
 }
 
 void mqtt::handleCommand() {
